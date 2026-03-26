@@ -54,7 +54,16 @@ try:
         except OSError:
             continue
 
-    # Pass 2: nothing found — auto-download the small model
+    # Pass 2: try loading via package import (installed via PEP 508 wheel URL)
+    if _nlp is None:
+        try:
+            import en_core_web_sm
+            _nlp = en_core_web_sm.load()
+            _model_name = "en_core_web_sm"
+        except (ImportError, OSError):
+            pass
+
+    # Pass 3: last resort — attempt a runtime download
     if _nlp is None:
         if _try_download("en_core_web_sm"):
             try:
