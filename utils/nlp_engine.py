@@ -1,30 +1,52 @@
 """
 utils/nlp_engine.py
-───────────────────
 Core NLP extraction engine.
 Uses spaCy NER + noun_chunks + custom PhraseMatcher for tech skills.
-Falls back gracefully when spaCy model is not yet downloaded.
+Auto-downloads en_core_web_sm on first run if no model is installed.
 """
 
 import re
-import json
+import sys
+import subprocess
 import unicodedata
 from collections import Counter
 from typing import Any
 
 import pdfplumber
 
-# ── spaCy bootstrap ─────────────────────────────────────────────────────────
+
+# ---------------------------------------------------------------------------
+# spaCy bootstrap — auto-download model if not present
+# ---------------------------------------------------------------------------
+
+def _try_download(model: str) -> bool:
+    """Download a spaCy model via pip. Returns True on success."""
+    try:
+        subprocess.check_call(
+            [sys.executable, "-m", "spacy", "download", model, "--quiet"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=300,
+        )
+        return True
+    except Exception:
+        return False
+
+
+SPACY_AVAILABLE = False
+_nlp = None
+_model_name = None
+PhraseMatcher = None
+
 try:
     import spacy
-    from spacy.matcher import PhraseMatcher
+    from spacy.matcher import PhraseMatcher as _PhraseMatcher
+    PhraseMatcher = _PhraseMatcher
 
-    # Try large model first, then medium, then small
-    _MODEL_PREFERENCE = ["en_core_web_lg", "en_core_web_md", "en_core_web_sm"]
-    _nlp = None
-    _model_name = None
+    _MODELS = ["en_core_web_lg", "en_core_web_md", "en_core_web_sm"]
 
-    for _m in _MODEL_PREFERENCE:
+    # Pass 1: load whatever is already installed
+    for _m in _MODELS:
         try:
             _nlp = spacy.load(_m)
             _model_name = _m
@@ -32,13 +54,19 @@ try:
         except OSError:
             continue
 
-    SPACY_AVAILABLE = _nlp is not None
-except ImportError:
-    SPACY_AVAILABLE = False
-    _nlp = None
-    _model_name = None
-    PhraseMatcher = None
+    # Pass 2: nothing found — auto-download the small model
+    if _nlp is None:
+        if _try_download("en_core_web_sm"):
+            try:
+                _nlp = spacy.load("en_core_web_sm")
+                _model_name = "en_core_web_sm"
+            except OSError:
+                pass
 
+    SPACY_AVAILABLE = _nlp is not None
+
+except ImportError:
+    pass  # spaCy not installed at all — stay in regex-fallback mode
 
 # ── Tech skills knowledge base ───────────────────────────────────────────────
 TECH_SKILLS = {

@@ -153,20 +153,14 @@ def render():
     </p>
     """, unsafe_allow_html=True)
 
-    # ── Model status banner ───────────────────────────────────────────────────
+    # -- Model status banner --
     if SPACY_AVAILABLE:
-        st.success(f"✅ spaCy model loaded: **{_model_name}** — full NER pipeline active")
+        st.success(f"\u2705 spaCy **{_model_name}** loaded \u2014 full NER + noun_chunks pipeline active")
     else:
-        st.warning(
-            "⚠️ spaCy model not found. Running in **regex-fallback mode** — "
-            "tech skills and soft skills still work. "
-            "Install spaCy to enable full NER: see the Setup tab in the sidebar."
+        st.error(
+            "\u274c spaCy model failed to load. Try restarting the app or re-deploying. "
+            "Regex fallback is active (tech skills still detected)."
         )
-        with st.expander("📦 How to install spaCy"):
-            st.code("""pip install spacy
-python -m spacy download en_core_web_lg
-# or for smaller footprint:
-python -m spacy download en_core_web_sm""", language="bash")
 
     st.markdown("---")
 
